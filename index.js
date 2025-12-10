@@ -125,6 +125,15 @@ async function run() {
       res.send(result);
     });
 
+    // GET orders by user email
+    app.get("/my-orders/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await ordersCollection
+        .find({ customerEmail: email })
+        .toArray();
+      res.send(result);
+    });
+
     // Update order status
     app.patch("/orders/:id", async (req, res) => {
       try {
