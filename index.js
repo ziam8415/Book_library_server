@@ -68,6 +68,15 @@ async function run() {
       res.send(result);
     });
 
+    // GET books by seller email
+    app.get("/my-books/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await booksCollection
+        .find({ "seller.email": email })
+        .toArray();
+      res.send(result);
+    });
+
     // ------------------ 🟢 UPDATE a book ------------------
     app.put("/books/:id", async (req, res) => {
       const id = req.params.id;
