@@ -110,6 +110,12 @@ async function run() {
       res.send(result);
     });
 
+    //get order
+    app.get("/orders", async (req, res) => {
+      const result = await ordersCollection.find().toArray();
+      res.send(result);
+    });
+
     // -------------------------------------------------------
   } catch (err) {
     console.error("Error connecting to MongoDB", err);
