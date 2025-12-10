@@ -47,6 +47,7 @@ async function run() {
 
     const db = client.db("booksDB");
     const booksCollection = db.collection("books");
+    const ordersCollection = db.collection("orders");
 
     // ADD a book
     app.post("/books", async (req, res) => {
@@ -59,6 +60,16 @@ async function run() {
     app.get("/books", async (req, res) => {
       const result = await booksCollection.find().toArray();
       res.send(result);
+    });
+
+    // Get latest 6 books
+    app.get("/books/latest", async (req, res) => {
+      const latestBooks = await booksCollection
+        .find()
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .toArray();
+      res.send(latestBooks);
     });
 
     // GET a book by id
@@ -89,6 +100,13 @@ async function run() {
         }
       );
 
+      res.send(result);
+    });
+
+    // add a order
+    app.post("/orders", async (req, res) => {
+      const bookData = req.body;
+      const result = await ordersCollection.insertOne(bookData);
       res.send(result);
     });
 
