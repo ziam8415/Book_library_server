@@ -4,8 +4,8 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const port = 3000;
-const { MongoClient, ServerApiVersion } = require("mongodb");
-const admin = require("firebase-admin"); // ✅ FIXED: required Firebase Admin
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const admin = require("firebase-admin");
 
 // ------------------ FIREBASE ADMIN SETUP ------------------
 const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
@@ -60,6 +60,30 @@ async function run() {
       const result = await booksCollection.find().toArray();
       res.send(result);
     });
+
+    // GET a book by id
+    app.get("/books/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await booksCollection.findOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
+
+    // ------------------ 🟢 UPDATE a book ------------------
+    app.put("/books/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedData = req.body;
+
+      const result = await booksCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: updatedData,
+        }
+      );
+
+      res.send(result);
+    });
+
+    // -------------------------------------------------------
   } catch (err) {
     console.error("Error connecting to MongoDB", err);
   }
