@@ -149,6 +149,26 @@ async function run() {
       }
     });
 
+    // Cancel (delete) an order
+    app.delete("/orders/:id", async (req, res) => {
+      try {
+        const orderId = req.params.id;
+
+        const result = await ordersCollection.deleteOne({
+          _id: new ObjectId(orderId),
+        });
+
+        if (result.deletedCount === 0) {
+          return res.status(404).send({ message: "Order not found" });
+        }
+
+        res.send({ message: "Order cancelled successfully" });
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Server error" });
+      }
+    });
+
     // -------------------------------------------------------
   } catch (err) {
     console.error("Error connecting to MongoDB", err);
