@@ -116,6 +116,39 @@ async function run() {
       res.send(result);
     });
 
+    // GET orders by seller email
+    app.get("/my-books-orders/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await ordersCollection
+        .find({ sellerEmail: email })
+        .toArray();
+      res.send(result);
+    });
+
+    // Update order status
+    app.patch("/orders/:id", async (req, res) => {
+      try {
+        const orderId = req.params.id;
+        const { status } = req.body;
+
+        const result = await ordersCollection.updateOne(
+          { _id: new ObjectId(orderId) },
+          { $set: { status } }
+        );
+
+        if (result.modifiedCount === 0) {
+          return res
+            .status(404)
+            .send({ message: "Order not found or status unchanged" });
+        }
+
+        res.send({ message: "Order status updated successfully" });
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Server error" });
+      }
+    });
+
     // -------------------------------------------------------
   } catch (err) {
     console.error("Error connecting to MongoDB", err);
