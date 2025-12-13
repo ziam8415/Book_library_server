@@ -6,6 +6,7 @@ const cors = require("cors");
 const port = 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const admin = require("firebase-admin");
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
 
 // ------------------ FIREBASE ADMIN SETUP ------------------
 const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
@@ -175,6 +176,65 @@ async function run() {
       } catch (err) {
         console.error(err);
         res.status(500).send({ message: "Server error" });
+      }
+    });
+
+    // Cancel user order (customer side)
+    app.patch("/cancel-order/:id", async (req, res) => {
+      try {
+        const orderId = req.params.id;
+
+        const result = await ordersCollection.updateOne(
+          { _id: new ObjectId(orderId) },
+          { $set: { status: "cancelled" } }
+        );
+
+        if (result.modifiedCount === 0) {
+          return res.status(404).send({ message: "Order not found" });
+        }
+
+        res.send({ message: "Order cancelled successfully" });
+      } catch (error) {
+        console.log(error);
+        res.status(500).send({ message: "Server error" });
+      }
+    });
+
+    //payment related api
+    app.post("/create-checkout-session", async (req, res) => {
+      try {
+        const paymentInfo = req.body;
+        const amount = parseInt(paymentInfo.price) * 100;
+
+        const session = await stripe.checkout.sessions.create({
+          line_items: [
+            {
+              price_data: {
+                currency: "BDT",
+                unit_amount: amount,
+                product_data: {
+                  name: paymentInfo.bookName,
+                },
+              },
+              quantity: 1,
+            },
+          ],
+
+          customer_email: paymentInfo.customer_email,
+          mode: "payment",
+
+          metadata: {
+            orderId: paymentInfo.orderId,
+          },
+
+          success_url: `${process.env.CLIENT_DOMAIN}/dashboard/payment-success`,
+          cancel_url: `${process.env.CLIENT_DOMAIN}/dashboard/payment-cancelled`,
+        });
+
+        res.send({ url: session.url });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ error: error.message });
       }
     });
 
