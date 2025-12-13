@@ -49,6 +49,39 @@ async function run() {
     const db = client.db("booksDB");
     const booksCollection = db.collection("books");
     const ordersCollection = db.collection("orders");
+    const usersCollection = db.collection("user");
+
+    // save or update a user in db
+    app.post("/user", async (req, res) => {
+      const userData = req.body;
+      userData.created_at = new Date().toISOString();
+      userData.last_loggedIn = new Date().toISOString();
+      userData.role = "customer";
+
+      const query = {
+        email: userData.email,
+      };
+
+      const alreadyExists = await usersCollection.findOne(query);
+
+      if (alreadyExists) {
+        const result = await usersCollection.updateOne(query, {
+          $set: {
+            last_loggedIn: new Date().toISOString(),
+          },
+        });
+        return res.send(result);
+      }
+
+      const result = await usersCollection.insertOne(userData);
+      res.send(result);
+    });
+
+    //get user data
+    app.get("/user", async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
 
     // ADD a book
     app.post("/books", async (req, res) => {
