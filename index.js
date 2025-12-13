@@ -210,7 +210,7 @@ async function run() {
           line_items: [
             {
               price_data: {
-                currency: "BDT",
+                currency: "bdt",
                 unit_amount: amount,
                 product_data: {
                   name: paymentInfo.bookName,
@@ -227,7 +227,8 @@ async function run() {
             orderId: paymentInfo.orderId,
           },
 
-          success_url: `${process.env.CLIENT_DOMAIN}/dashboard/payment-success`,
+          // ✅ IMPORTANT CHANGE HERE
+          success_url: `${process.env.CLIENT_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${process.env.CLIENT_DOMAIN}/dashboard/payment-cancelled`,
         });
 
@@ -235,6 +236,60 @@ async function run() {
       } catch (error) {
         console.error(error);
         res.status(500).send({ error: error.message });
+      }
+    });
+
+    app.patch("/payment-success", async (req, res) => {
+      try {
+        const sessionId = req.query.session_id;
+
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+        console.log(session);
+
+        if (session.payment_status === "paid") {
+          const id = session.metadata.orderId;
+          const query = { _id: new ObjectId(id) };
+          const updated = {
+            $set: {
+              paymentStatus: "paid",
+              transactionId: session.payment_intent, // ✅ ADD THIS
+              paidAt: new Date(), // ✅ optional but recommended
+            },
+          };
+          const result = await ordersCollection.updateOne(query, updated);
+
+          res.send(result);
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ success: false, message: error.message });
+      }
+    });
+
+    //get invoice
+    app.get("/invoices/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+
+        if (!email) {
+          return res.status(400).send({ message: "Email is required" });
+        }
+
+        const query = {
+          customerEmail: email,
+          paymentStatus: "paid",
+        };
+
+        const invoices = await ordersCollection
+          .find(query)
+          .sort({ createdAt: -1 }) // latest first
+          .toArray();
+
+        res.send(invoices);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: error.message });
       }
     });
 
