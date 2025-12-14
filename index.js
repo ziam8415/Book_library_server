@@ -473,6 +473,14 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/wishlist/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await wishlistCollection
+        .find({ userEmail: email })
+        .toArray();
+      res.send(result);
+    });
+
     // -------------------------------------------------------
   } catch (err) {
     console.error("Error connecting to MongoDB", err);
