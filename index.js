@@ -28,6 +28,22 @@ app.use(
 );
 app.use(express.json());
 
+// jwt middlewares
+const verifyJWT = async (req, res, next) => {
+  const token = req?.headers?.authorization?.split(" ")[1];
+  console.log(token);
+  if (!token) return res.status(401).send({ message: "Unauthorized Access!" });
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.tokenEmail = decoded.email;
+    console.log(decoded);
+    next();
+  } catch (err) {
+    console.log(err);
+    return res.status(401).send({ message: "Unauthorized Access!", err });
+  }
+};
+
 // ------------------ MONGODB CONNECTION ------------------
 const uri = `mongodb+srv://${process.env.MongoUser}:${process.env.MongoPass}@simple.v1mki5f.mongodb.net/?retryWrites=true&w=majority&appName=simple`;
 
@@ -50,6 +66,7 @@ async function run() {
     const booksCollection = db.collection("books");
     const ordersCollection = db.collection("orders");
     const usersCollection = db.collection("user");
+    const wishlistCollection = db.collection("wishList");
 
     // save or update a user in db
     app.post("/user", async (req, res) => {
@@ -88,6 +105,111 @@ async function run() {
     app.get("/user", async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
+    });
+
+    // ------------------ UPDATE USER ROLE (ADMIN ONLY) ------------------
+    app.patch("/users/role/:id", verifyJWT, async (req, res) => {
+      try {
+        const adminEmail = req.tokenEmail;
+        const targetUserId = req.params.id;
+        const { role } = req.body;
+
+        // Allowed roles
+        const allowedRoles = ["customer", "librarian", "admin"];
+        if (!allowedRoles.includes(role)) {
+          return res.status(400).send({ message: "Invalid role" });
+        }
+
+        // Check admin
+        const adminUser = await usersCollection.findOne({
+          email: adminEmail,
+        });
+
+        if (!adminUser || adminUser.role !== "admin") {
+          return res.status(403).send({ message: "Forbidden access" });
+        }
+
+        // Prevent admin changing own role
+        const targetUser = await usersCollection.findOne({
+          _id: new ObjectId(targetUserId),
+        });
+
+        if (!targetUser) {
+          return res.status(404).send({ message: "User not found" });
+        }
+
+        if (targetUser.email === adminEmail) {
+          return res
+            .status(400)
+            .send({ message: "You cannot change your own role" });
+        }
+
+        const result = await usersCollection.updateOne(
+          { _id: new ObjectId(targetUserId) },
+          { $set: { role } }
+        );
+
+        res.send({
+          success: true,
+          message: `User role updated to ${role}`,
+        });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: error.message });
+      }
+    });
+
+    //book status update by admin
+    app.patch("/books/status/:id", verifyJWT, async (req, res) => {
+      try {
+        const adminEmail = req.tokenEmail;
+        const { status } = req.body;
+        const bookId = req.params.id;
+
+        // Admin check
+        const adminUser = await usersCollection.findOne({ email: adminEmail });
+        if (!adminUser || adminUser.role !== "admin") {
+          return res.status(403).send({ message: "Forbidden access" });
+        }
+
+        const result = await booksCollection.updateOne(
+          { _id: new ObjectId(bookId) },
+          { $set: { status } }
+        );
+
+        res.send({ success: true, message: "Book status updated" });
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    });
+
+    //book delete by admin
+    app.delete("/books/:id", verifyJWT, async (req, res) => {
+      try {
+        const adminEmail = req.tokenEmail;
+        const bookId = req.params.id;
+
+        // Admin check
+        const adminUser = await usersCollection.findOne({ email: adminEmail });
+        if (!adminUser || adminUser.role !== "admin") {
+          return res.status(403).send({ message: "Forbidden access" });
+        }
+
+        // Delete book
+        const bookResult = await booksCollection.deleteOne({
+          _id: new ObjectId(bookId),
+        });
+
+        // Delete all related orders
+        await ordersCollection.deleteMany({ bookId });
+
+        res.send({
+          success: true,
+          message: "Book and related orders deleted",
+        });
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
     });
 
     // ADD a book
@@ -331,6 +453,24 @@ async function run() {
         console.error(error);
         res.status(500).send({ message: error.message });
       }
+    });
+
+    //wish list
+    app.post("/wishlist", async (req, res) => {
+      const wishlist = req.body;
+
+      // prevent duplicate wishlist
+      const exists = await wishlistCollection.findOne({
+        userEmail: wishlist.userEmail,
+        bookId: wishlist.bookId,
+      });
+
+      if (exists) {
+        return res.status(400).send({ message: "Already wishlisted" });
+      }
+
+      const result = await wishlistCollection.insertOne(wishlist);
+      res.send(result);
     });
 
     // -------------------------------------------------------
