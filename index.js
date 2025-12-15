@@ -67,6 +67,7 @@ async function run() {
     const ordersCollection = db.collection("orders");
     const usersCollection = db.collection("user");
     const wishlistCollection = db.collection("wishList");
+    const reviewsCollection = db.collection("review");
 
     // save or update a user in db
     app.post("/user", async (req, res) => {
@@ -478,6 +479,73 @@ async function run() {
       const result = await wishlistCollection
         .find({ userEmail: email })
         .toArray();
+      res.send(result);
+    });
+
+    // Check if book already in wishlist
+    app.get("/wishlist/check", async (req, res) => {
+      const { email, bookId } = req.query;
+
+      const exists = await wishlistCollection.findOne({
+        userEmail: email,
+        bookId: bookId,
+      });
+
+      res.send({ exists: !!exists });
+    });
+
+    app.post("/wishlist", async (req, res) => {
+      const { userEmail, bookId } = req.body;
+
+      const exists = await wishlistCollection.findOne({
+        userEmail,
+        bookId,
+      });
+
+      if (exists) {
+        return res.status(409).send({ message: "Already wishlisted" });
+      }
+
+      const result = await wishlistCollection.insertOne(req.body);
+      res.send(result);
+    });
+
+    app.get("/wishlist/user/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await wishlistCollection
+        .find({ userEmail: email })
+        .toArray();
+      res.send(result);
+    });
+
+    //review post
+
+    app.post("/reviews", async (req, res) => {
+      const { bookId, userEmail } = req.body;
+
+      const result = await reviewsCollection.insertOne({
+        ...req.body,
+        createdAt: Date.now(),
+      });
+
+      res.send(result);
+    });
+
+    //review get
+
+    app.get("/review", async (req, res) => {
+      const result = await reviewsCollection.find().toArray();
+      res.send(result);
+    });
+    // GET reviews by bookId
+    app.get("/reviews/book/:bookId", async (req, res) => {
+      const bookId = req.params.bookId;
+
+      const result = await reviewsCollection
+        .find({ bookId })
+        .sort({ createdAt: -1 })
+        .toArray();
+
       res.send(result);
     });
 
