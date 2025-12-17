@@ -1,7 +1,7 @@
 📚 Library Backend API
 
 🔗 Live API Server: https://library-server-tawny.vercel.app/
-🔗 Live API Clint: https://library-z3321.netlify.app/
+🔗 Live Link Clint: https://library-z3321.netlify.app/
 
 📦 GitHub Repository Server: https://github.com/ziam8415/Book_library_server
 
