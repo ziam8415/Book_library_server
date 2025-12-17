@@ -3,7 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const app = express();
 const cors = require("cors");
-const port = 3000;
+const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const admin = require("firebase-admin");
 const stripe = require("stripe")(process.env.STRIPE_SECRET);
@@ -58,8 +58,8 @@ const client = new MongoClient(uri, {
 // ------------------ RUN FUNCTION ------------------
 async function run() {
   try {
-    await client.connect();
-    await client.db("admin").command({ ping: 1 });
+    //await client.connect();
+    //await client.db("admin").command({ ping: 1 });
     console.log("Connected to MongoDB!");
 
     const db = client.db("booksDB");
@@ -474,12 +474,51 @@ async function run() {
       res.send(result);
     });
 
+    //get wishlist by email
     app.get("/wishlist/:email", async (req, res) => {
       const email = req.params.email;
       const result = await wishlistCollection
         .find({ userEmail: email })
         .toArray();
       res.send(result);
+    });
+
+    //delete wishlist
+    app.delete("/wishlist/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { email } = req.query;
+
+        if (!email) {
+          return res.status(400).json({
+            success: false,
+            message: "Email is required",
+          });
+        }
+
+        const result = await wishlistCollection.deleteOne({
+          _id: new ObjectId(id),
+          userEmail: email,
+        });
+
+        if (result.deletedCount === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "Wishlist item not found",
+          });
+        }
+
+        res.json({
+          success: true,
+          message: "Wishlist item deleted",
+        });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({
+          success: false,
+          message: "Failed to delete wishlist item",
+        });
+      }
     });
 
     // Check if book already in wishlist
